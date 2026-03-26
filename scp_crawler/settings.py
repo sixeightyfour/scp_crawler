@@ -114,6 +114,7 @@ EXPORT_FIELDS = [
     "scp",
     "scp_number",
     "series",
+    "references",
 ]
 # Fields stored in individual JSONs. Keyed by URL
 SPLIT_FIELDS = ["history"]
