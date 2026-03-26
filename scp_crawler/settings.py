@@ -112,4 +112,4 @@ SPLIT_FIELDS = ["scp", "history"]
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
 
 # If true, removes split fields from combined JSON
-DROP_SPLIT_FIELDS_FROM_MAIN = False
+DROP_SPLIT_FIELDS_FROM_MAIN = True
