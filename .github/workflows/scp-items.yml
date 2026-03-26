@@ -6,6 +6,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+      - cron: "0 5 * * *"
 
 permissions:
   contents: write
@@ -61,8 +63,17 @@ jobs:
       - name: "Process Supplements"
         run: make data/processed/supplement
 
-      - name: "Move Files into API"
-        run: cp -Rf ./data/processed/* ./scp-api/docs/data/scp/
+    #  - name: "Move Files into API"
+  #      run: cp -Rf ./data/processed/* ./scp-api/docs/data/scp/
+
+      - name: "Upload crawl outputs"
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawl-data
+          path: |
+            data/scp_items.json
+            data/split/
+            data/processed/
 
       # - name: "Push"
       #   shell: bash
