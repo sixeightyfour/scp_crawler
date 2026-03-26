@@ -98,3 +98,18 @@ FEED_FORMAT = "json"
 FEED_URL = f"{DIRECTORY}/%(name)s.json"
 
 RETRY_TIMES = 20
+
+ITEM_PIPELINES = {
+    "scp_crawler.pipelines.SelectiveExportPipeline": 300,
+}
+
+# Fields stored in combined JSON. "None" includes everything
+# Example: EXPORT_FIELDS = ["url", "title", "tags"]
+EXPORT_FIELDS = None
+
+# Fields stored in individual JSONs. Keyed by URL
+SPLIT_FIELDS = []
+SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
+
+# If true, removes split fields from combined JSON
+DROP_SPLIT_FIELDS_FROM_MAIN = True
