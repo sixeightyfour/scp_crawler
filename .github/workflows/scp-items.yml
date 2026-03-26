@@ -36,35 +36,63 @@ jobs:
       - name: "Crawl Titles"
         run: make data/scp_titles.json
 
-      - name: "Crawl Hubs"
-        run: make data/scp_hubs.json
+      - name: "Crawl Items (test)"
+        run: |
+          source .venv/bin/activate
+          python -m scrapy crawl scp -o data/scp_items.json -s CLOSESPIDER_ITEMCOUNT=10
 
-      - name: "Crawl Items"
-        run: make data/scp_items.json
+      - name: "Process Items (test)"
+        run: |
+          source .venv/bin/activate
+          python -m scp_crawler.postprocessing run-postproc-items
 
-      - name: "Process Items"
-        run: make data/processed/items
+      - name: "Check split files"
+        run: |
+          echo "=== data files ==="
+          find data -maxdepth 3 -type f | sort
+          echo
+          echo "=== split preview ==="
+          head -c 2000 data/split/scp__raw_content.json || true
+          echo
 
-      - name: "Crawl Tales"
-        run: make data/scp_tales.json
-
-      - name: "Process Tales"
-        run: make data/processed/tales
-
-      - name: "Crawl GOI"
-        run: make data/goi.json
-
-      - name: "Process GOI"
-        run: make data/processed/goi
-
-      - name: "Upload crawl outputs"
+      - name: "Upload test outputs"
         uses: actions/upload-artifact@v4
         with:
-          name: crawl-data
+          name: crawl-test-data
           path: |
             data/scp_items.json
             data/split/
-            data/processed/
+            data/processed/items/
+
+#      - name: "Crawl Hubs"
+#        run: make data/scp_hubs.json
+
+#      - name: "Crawl Items"
+#        run: make data/scp_items.json
+
+#      - name: "Process Items"
+#        run: make data/processed/items
+
+#      - name: "Crawl Tales"
+#        run: make data/scp_tales.json
+
+#      - name: "Process Tales"
+#        run: make data/processed/tales
+
+#      - name: "Crawl GOI"
+#        run: make data/goi.json
+
+#      - name: "Process GOI"
+#        run: make data/processed/goi
+
+#      - name: "Upload crawl outputs"
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: crawl-data
+#          path: |
+#            data/scp_items.json
+#            data/split/
+#            data/processed/
 
   #    - name: "Crawl Supplements"
  #       run: make data/scp_supplement.json
