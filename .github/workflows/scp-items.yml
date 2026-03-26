@@ -36,6 +36,9 @@ jobs:
       - name: "Crawl Titles"
         run: make data/scp_titles.json
 
+      - name: "Crawl Hubs"
+        run: make data/scp_hubs.json
+
       - name: "Crawl Items (test)"
         run: |
           source .venv/bin/activate
@@ -64,8 +67,7 @@ jobs:
             data/split/
             data/processed/items/
 
-#      - name: "Crawl Hubs"
-#        run: make data/scp_hubs.json
+
 
 #      - name: "Crawl Items"
 #        run: make data/scp_items.json
