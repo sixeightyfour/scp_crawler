@@ -438,5 +438,11 @@ def merge_main_json_files():
 
     return merged
 
+@cli.command()
+def run_merge_main_json():
+    output_path = Path(cwd) / "data" / "all_pages.json"
+    merged = merge_main_json_files()
+    to_file(merged, output_path)
+
 if __name__ == "__main__":
     cli()
