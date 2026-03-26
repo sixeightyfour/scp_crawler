@@ -59,6 +59,8 @@ data/scp_int_items.json: .venv
 data/scp_int_tales.json: .venv
 	$(PYTHON_VENV) python -m scrapy crawl scp_int_tales -o data/scp_int_tales.json
 
+data/all_pages.json: .venv
+	$(PYTHON_VENV) python -m scp_crawler.postprocessing run-merge-main-json
 
 clean_data:
 	rm -Rf data/*
