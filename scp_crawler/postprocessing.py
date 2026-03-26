@@ -405,6 +405,38 @@ def run_postproc_goi():
 
     to_file(tales, processed_path / "index.json")
 
+def merge_main_json_files():
+    sources = [
+        ("item", Path(cwd) / "data" / "scp_items.json"),
+        ("tale", Path(cwd) / "data" / "scp_tales.json"),
+        ("hub", Path(cwd) / "data" / "scp_hubs.json"),
+        ("goi", Path(cwd) / "data" / "goi.json"),
+    ]
+
+    merged = {}
+
+    for page_type, path in sources:
+        if not path.exists():
+            print(f"Skipping missing file: {path}")
+            continue
+
+        records = from_file(path)
+
+        if not isinstance(records, list):
+            print(f"Skipping non-list file: {path}")
+            continue
+
+        for record in records:
+            url = record.get("url")
+            if not url:
+                continue
+
+            merged[url] = {
+                "page_type": page_type,
+                **record,
+            }
+
+    return merged
 
 if __name__ == "__main__":
     cli()
