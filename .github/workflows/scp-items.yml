@@ -66,6 +66,45 @@ jobs:
             data/split/
             data/processed/
 
+      - name: "Merge Main JSON"
+        run: make data/all_pages.json
+  
+      - name: "Clone output repository"
+        uses: actions/checkout@v6
+        with:
+          repository: sixeightyfour/scp-json-sync
+          path: output-repo
+          token: ${{ secrets.OUTPUT_REPO_TOKEN }}
+
+      - name: "Copy outputs into output repository"
+        run: |
+          mkdir -p output-repo/output/raw
+          mkdir -p output-repo/output/merged
+          mkdir -p output-repo/output/split
+          mkdir -p output-repo/output/processed
+
+          cp data/scp_items.json output-repo/output/raw/
+          cp data/scp_tales.json output-repo/output/raw/
+          cp data/scp_hubs.json output-repo/output/raw/
+          cp data/goi.json output-repo/output/raw/
+          cp data/all_pages.json output-repo/output/merged/
+
+          if [ -d data/split ]; then
+            cp -Rf data/split/. output-repo/output/split/
+          fi
+
+          if [ -d data/processed ]; then
+            cp -Rf data/processed/. output-repo/output/processed/
+          fi
+
+      - name: "Commit and push outputs"
+        run: |
+          cd output-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Update SCP crawl outputs" || echo "No changes to commit"
+          git push
 
     #  - name: "Move Files into API"
   #      run: cp -Rf ./data/processed/* ./scp-api/docs/data/scp/
