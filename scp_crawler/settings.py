@@ -116,7 +116,7 @@ EXPORT_FIELDS = [
     "series",
 ]
 # Fields stored in individual JSONs. Keyed by URL
-SPLIT_FIELDS = ["scp", "history"]
+SPLIT_FIELDS = ["history"]
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
 
 # If true, removes split fields from combined JSON
