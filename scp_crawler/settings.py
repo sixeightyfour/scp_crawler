@@ -105,8 +105,16 @@ ITEM_PIPELINES = {
 
 # Fields stored in combined JSON. "None" includes everything
 # Example: EXPORT_FIELDS = ["url", "title", "tags"]
-EXPORT_FIELDS = ["title", "link", "tags", "rating", "references"]
-
+EXPORT_FIELDS = [
+    "url",
+    "link",
+    "title",
+    "tags",
+    "rating",
+    "scp",
+    "scp_number",
+    "series",
+]
 # Fields stored in individual JSONs. Keyed by URL
 SPLIT_FIELDS = ["scp", "history"]
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
