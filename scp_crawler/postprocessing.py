@@ -126,30 +126,36 @@ def get_wiki_source(page_id, domain, attempts=5):
         print(f"Unable to pull body for wikisource from {page_id}")
         return None
 
+def load_hubs():
+    hub_path = Path(cwd) / "data" / "scp_hubs.json"
+    if not hub_path.exists():
+        return {}, {}
 
-print("Processing Hub list.")
-hub_list = from_file(cwd + "/data/scp_hubs.json")
-hub_items = {}
-hub_references = {}
+    print("Processing Hub list.")
+    hub_list = from_file(hub_path)
+    hub_items = {}
+    hub_references = {}
 
-for hub in tqdm(hub_list):
-    hub["history"] = process_history(hub.get("history"))
-    if len(hub["history"]) > 0:
-        hub["created_at"] = hub["history"][0]["date"]
-        hub["creator"] = hub["history"][0]["author"]
-    else:
-        hub["created_at"] = "unknown"
-        hub["creator"] = "unknown"
+    for hub in tqdm(hub_list):
+        hub["history"] = process_history(hub.get("history"))
+        if len(hub["history"]) > 0:
+            hub["created_at"] = hub["history"][0]["date"]
+            hub["creator"] = hub["history"][0]["author"]
+        else:
+            hub["created_at"] = "unknown"
+            hub["creator"] = "unknown"
 
-    hub_items[hub["link"]] = hub
-    hub_references[hub["link"]] = set(hub.get("references", []))
+        hub_items[hub["link"]] = hub
+        hub_references[hub["link"]] = set(hub.get("references", []))
 
-hub_dir = Path(cwd + "/data/processed/hubs")
-os.makedirs(hub_dir, exist_ok=True)
-to_file(hub_items, hub_dir / "index.json")
+    hub_dir = Path(cwd + "/data/processed/hubs")
+    os.makedirs(hub_dir, exist_ok=True)
+    to_file(hub_items, hub_dir / "index.json")
+
+    return hub_items, hub_references
 
 
-def get_hubs(link):
+def get_hubs(link, hub_references):
     in_hubs = []
     for hub_name, hub_links in hub_references.items():
         if link in hub_links:
