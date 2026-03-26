@@ -168,6 +168,8 @@ def run_postproc_items():
     processed_path = Path(cwd + "/data/processed/items")
     os.makedirs(processed_path, exist_ok=True)
 
+    _, hub_references = load_hubs()
+
     title_list = from_file(cwd + "/data/scp_titles.json")
     title_index = {title["link"]: title["title"] for title in title_list}
 
@@ -213,8 +215,8 @@ def run_postproc_items():
             item["raw_source"] = None
 
         item["images"] = get_images(item["raw_content"]) if item["raw_content"] else []
-        item["hubs"] = get_hubs(item["link"]) if item["link"] else []
-
+        item["hubs"] = get_hubs(item["link"], hub_references) if item["link"] else []
+        
         item["history"] = process_history(item["history"])
         if len(item["history"]) > 0:
             item["created_at"] = item["history"][0]["date"]
@@ -263,6 +265,8 @@ def run_postproc_tales():
     processed_path = Path(cwd + "/data/processed/tales")
     os.makedirs(processed_path, exist_ok=True)
 
+    _, hub_references = load_hubs()
+    
     print("Processing Tale list.")
     tale_list = from_file(cwd + "/data/scp_tales.json")
 
@@ -295,8 +299,8 @@ def run_postproc_tales():
         tale["references"] = references
 
         tale["images"] = get_images(tale["raw_content"]) if tale["raw_content"] else []
-        tale["hubs"] = get_hubs(tale["link"]) if tale["link"] else []
-
+        tale["hubs"] = get_hubs(tale["link"], hub_references) if tale["link"] else []
+        
         if tale["page_id"] and tale["domain"]:
             tale["raw_source"] = get_wiki_source(tale["page_id"], tale["domain"])
         else:
@@ -341,6 +345,8 @@ def run_postproc_goi():
     processed_path = Path(cwd + "/data/processed/goi")
     os.makedirs(processed_path, exist_ok=True)
 
+    _, hub_references = load_hubs()
+    
     print("Processing GOI list.")
     tale_list = from_file(cwd + "/data/goi.json")
 
@@ -372,7 +378,7 @@ def run_postproc_goi():
         tale["references"] = references
 
         tale["images"] = get_images(tale["raw_content"]) if tale["raw_content"] else []
-        tale["hubs"] = get_hubs(tale["link"]) if tale["link"] else []
+        tale["hubs"] = get_hubs(tale["link"], hub_references) if tale["link"] else []
 
         if tale["page_id"] and tale["domain"]:
             tale["raw_source"] = get_wiki_source(tale["page_id"], tale["domain"])
