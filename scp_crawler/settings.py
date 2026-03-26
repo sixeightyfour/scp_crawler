@@ -108,7 +108,7 @@ ITEM_PIPELINES = {
 EXPORT_FIELDS = None
 
 # Fields stored in individual JSONs. Keyed by URL
-SPLIT_FIELDS = []
+SPLIT_FIELDS = ["raw_content"]
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
 
 # If true, removes split fields from combined JSON
