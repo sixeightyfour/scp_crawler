@@ -112,4 +112,4 @@ SPLIT_FIELDS = []
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
 
 # If true, removes split fields from combined JSON
-DROP_SPLIT_FIELDS_FROM_MAIN = True
+DROP_SPLIT_FIELDS_FROM_MAIN = False
