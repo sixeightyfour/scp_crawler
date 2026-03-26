@@ -1,122 +1,80 @@
-import html
 import json
 import os
-import re
-import time
-from datetime import date, datetime
 from pathlib import Path
+from datetime import datetime
 
-import httpx
-import typer
-from bs4 import BeautifulSoup
+import click
 from tqdm import tqdm
+
+from .utils import get_wiki_source, get_images, get_hubs
 
 cwd = os.getcwd()
 
-MAIN_TOKEN = "123456"
-
-cli = typer.Typer()
-
-
-def json_serial(obj):
-    # Convert datetimes to strings in ISO format.
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    # Convert anything else to a string.
-    return str(obj)
-
 
 def from_file(path):
-    with open(path, "r") as fs:
-        data = json.load(fs)
-    return data
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def to_file(obj, path):
-    with open(path, "w") as fs:
-        print(f"Saving data to {path}")
-        json.dump(obj, fs, sort_keys=True, default=json_serial)
+def to_file(data, path):
+    print(f"Saving data to {path}")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
 
 
-def get_images(html):
-    content_soup = BeautifulSoup(html, "lxml")
-    img_tags = content_soup.find_all("img")
-    return [img["src"] for img in img_tags if not img["src"].startswith("https://www.wikidot.com/avatar.php")]
+
+def load_optional_json(path):
+    if os.path.exists(path):
+        return from_file(path)
+    return {}
+
+
+def load_split_maps(spider_name, fields):
+    split_dir = Path(cwd) / "data" / "split"
+    maps = {}
+    for field in fields:
+        path = split_dir / f"{spider_name}__{field}.json"
+        maps[field] = load_optional_json(path)
+    return maps
+
+
+def get_field(item, split_maps, field, default=None):
+    if field in item and item[field] is not None:
+        return item[field]
+
+    url = item.get("url")
+    if url and field in split_maps:
+        value = split_maps[field].get(url)
+        if value is not None:
+            return value
+
+    return default
+
 
 
 def process_history(history):
-    history = [v for v in history.values()]
+    if not history:
+        return []
+
+    if isinstance(history, dict):
+        history = list(history.values())
+    elif not isinstance(history, list):
+        return []
+
     for revision in history:
-        revision["date"] = datetime.strptime(revision["date"], "%d %b %Y %H:%M")
+        if isinstance(revision.get("date"), str):
+            revision["date"] = datetime.strptime(
+                revision["date"], "%d %b %Y %H:%M"
+            )
+
     history.sort(key=lambda x: x["date"])
     return history
 
 
-def get_wiki_source(page_id, domain, attempts=5):
+@click.group()
+def cli():
+    pass
 
-    try:
-        response = httpx.post(
-            f"https://{domain}/ajax-module-connector.php",
-            data={
-                "wikidot_token7": MAIN_TOKEN,
-                "page_id": str(page_id),
-                "moduleName": "viewsource/ViewSourceModule",
-            },
-            cookies={"wikidot_token7": MAIN_TOKEN},
-        )
-        response.raise_for_status()
-    except:
-        print(f"Failed to load source for {page_id}")
-        attempts -= 1
-        if attempts > 0:
-            print(f"Sleeping before retry- {attempts} attempts remaining.")
-            time.sleep(1)
-            return get_wiki_source(page_id, domain, attempts=attempts)
-        return False
-
-    try:
-        page_response = response.json()
-        soup = BeautifulSoup(page_response["body"], "lxml")
-        raw_source = "".join(str(x) for x in soup.find("div", {"class": "page-source"}).contents)
-        return re.sub("<br\s*?/?\s*?>", "\n", html.unescape(raw_source), flags=re.IGNORECASE)
-    except:
-        print(f"Unable to pull body for wikisource from {page_id}")
-        return None
-
-
-
-print("Processing Hub list.")
-
-hub_list = from_file(cwd + "/data/scp_hubs.json")
-hub_items = {}
-hub_references = {}
-for hub in tqdm(
-    hub_list,
-):
-    # Convert history dict to list and sort by date.
-    hub["history"] = process_history(hub["history"])
-
-    if len(hub["history"]) > 0:
-        hub["created_at"] = hub["history"][0]["date"]
-        hub["creator"] = hub["history"][0]["author"]
-    else:
-        hub["created_at"] = "unknown"
-        hub["creator"] = "unknown"
-
-    hub_items[hub["link"]] = hub
-    hub_references[hub["link"]] = set(hub["references"])
-
-hub_dir = Path(cwd + "/data/processed/hubs")
-os.makedirs(hub_dir, exist_ok=True)
-to_file(hub_items, hub_dir / "index.json")
-
-
-def get_hubs(link):
-    in_hubs = []
-    for hub_name, hub_links in hub_references.items():
-        if link in hub_links:
-            in_hubs.append(hub_name)
-    return in_hubs
 
 
 @cli.command()
@@ -127,151 +85,186 @@ def run_postproc_items():
     title_list = from_file(cwd + "/data/scp_titles.json")
     title_index = {title["link"]: title["title"] for title in title_list}
 
-    print("Processing Item list.")
-
     item_list = from_file(cwd + "/data/scp_items.json")
+
+    split_maps = load_split_maps(
+        "scp",
+        ["raw_content", "history", "page_id", "domain", "link", "references"],
+    )
+
     items = {}
     series_items = {}
+
     for item in tqdm(item_list, smoothing=0):
-        if item["link"] in title_index:
-            item["title"] = title_index[item["link"]]
+        link = get_field(item, split_maps, "link", "")
+        raw_content = get_field(item, split_maps, "raw_content", "")
+        history = get_field(item, split_maps, "history", {})
+        page_id = get_field(item, split_maps, "page_id")
+        domain = get_field(item, split_maps, "domain")
+
+        item["link"] = link
+        item["raw_content"] = raw_content
+        item["history"] = history
+        item["page_id"] = page_id
+        item["domain"] = domain
+
+        if link in title_index:
+            item["title"] = title_index[link]
+
+        if page_id and domain:
+            item["raw_source"] = get_wiki_source(page_id, domain)
         else:
-            item["title"] = item["scp"]
+            item["raw_source"] = None
 
-        item["raw_source"] = get_wiki_source(item["page_id"], item["domain"])
-        item["images"] = get_images(item["raw_content"])
-        item["hubs"] = get_hubs(item["link"])
+        item["images"] = get_images(raw_content) if raw_content else []
+        item["hubs"] = get_hubs(link) if link else []
 
-        # Convert history dict to list and sort by date.
-        item["history"] = process_history(item["history"])
+        item["history"] = process_history(history)
 
-        if len(item["history"]) > 0:
+        if item["history"]:
             item["created_at"] = item["history"][0]["date"]
             item["creator"] = item["history"][0]["author"]
+        else:
+            item["created_at"] = "unknown"
+            item["creator"] = "unknown"
 
         items[item["scp"]] = item
 
-        if item["series"].startswith("series-") and item["scp_number"] >= 5000:
-            if item["scp_number"] % 1000 > 500:
-                label = item["series"] + ".5"
-            else:
-                label = item["series"] + ".0"
-        else:
-            label = item["series"]
+        series = item["series"]
+        number = item["scp_number"]
 
-        if label not in series_items:
-            series_items[label] = {}
-        series_items[label][item["scp"]] = item
+        if series.startswith("series-") and number >= 5000:
+            label = series + (".5" if number % 1000 > 500 else ".0")
+        else:
+            label = series
+
+        series_items.setdefault(label, {})[item["scp"]] = item
 
     item_files = {}
     series_index = {}
-    for series, series_items in series_items.items():
+
+    for series, group in series_items.items():
         filename = f"content_{series}.json"
         series_index[series] = filename
-        to_file(series_items, processed_path / filename)
-        for item_key, item_value in series_items.items():
-            item_files[item_value["link"]] = filename
+        to_file(group, processed_path / filename)
+
+        for item_val in group.values():
+            item_files[item_val["link"]] = filename
 
     to_file(series_index, processed_path / "content_index.json")
 
     for item_id in items:
-        del items[item_id]["raw_content"]
-        del items[item_id]["raw_source"]
-        items[item_id]["content_file"] = item_files[items[item_id]["link"]]
+        items[item_id].pop("raw_content", None)
+        items[item_id].pop("raw_source", None)
+        items[item_id]["content_file"] = item_files.get(items[item_id]["link"])
 
     to_file(items, processed_path / "index.json")
 
 
+
 @cli.command()
 def run_postproc_tales():
-
     processed_path = Path(cwd + "/data/processed/tales")
     os.makedirs(processed_path, exist_ok=True)
 
-    print("Processing Tale list.")
-
     tale_list = from_file(cwd + "/data/scp_tales.json")
+
+    split_maps = load_split_maps(
+        "scp_tales",
+        ["raw_content", "history", "page_id", "domain", "link"],
+    )
+
     tales = {}
     tale_years = {}
+
     for tale in tqdm(tale_list, smoothing=0):
+        raw_content = get_field(tale, split_maps, "raw_content", "")
+        history = get_field(tale, split_maps, "history", {})
+        page_id = get_field(tale, split_maps, "page_id")
+        domain = get_field(tale, split_maps, "domain")
 
-        tale["images"] = get_images(tale["raw_content"])
-        tale["hubs"] = get_hubs(tale["link"])
-        tale["raw_source"] = get_wiki_source(tale["page_id"], tale["domain"])
+        tale["raw_content"] = raw_content
+        tale["history"] = history
 
-        # Convert history dict to list and sort by date.
-        tale["history"] = process_history(tale["history"])
+        tale["images"] = get_images(raw_content) if raw_content else []
 
-        if len(tale["history"]) > 0:
-            tale["created_at"] = tale["history"][0]["date"]
+        if page_id and domain:
+            tale["raw_source"] = get_wiki_source(page_id, domain)
+        else:
+            tale["raw_source"] = None
+
+        tale["history"] = process_history(history)
+
+        if tale["history"]:
+            dt = tale["history"][0]["date"]
+            tale["created_at"] = dt
             tale["creator"] = tale["history"][0]["author"]
-            tale["year"] = tale["created_at"].year
+            tale["year"] = dt.year
         else:
             tale["created_at"] = "unknown"
             tale["creator"] = "unknown"
             tale["year"] = "unknown"
 
-        tale["link"] = tale["url"].replace("https://scp-wiki.wikidot.com/", "")
-        tales[tale["link"]] = tale
-
-        if tale["year"] not in tale_years:
-            tale_years[tale["year"]] = {}
-        tale_years[tale["year"]][tale["link"]] = tale
+        link = tale["url"].replace("https://scp-wiki.wikidot.com/", "")
+        tales[link] = tale
+        tale_years.setdefault(tale["year"], {})[link] = tale
 
     year_index = {}
-    for year in tale_years:
-        filename = processed_path / f"content_{year}.json"
+
+    for year, group in tale_years.items():
+        filename = f"content_{year}.json"
         year_index[year] = filename
-        to_file(tale_years[year], filename)
-    to_file(year_index, processed_path / f"content_index.json")
+        to_file(group, processed_path / filename)
+
+    to_file(year_index, processed_path / "content_index.json")
 
     for tale_id in tales:
-        del tales[tale_id]["raw_content"]
-        del tales[tale_id]["raw_source"]
-        year = tales[tale_id]["year"]
-        tales[tale_id]["content_file"] = f"content_{year}.json"
+        tales[tale_id].pop("raw_content", None)
+        tales[tale_id].pop("raw_source", None)
+        tales[tale_id]["content_file"] = f"content_{tales[tale_id]['year']}.json"
 
     to_file(tales, processed_path / "index.json")
+
 
 
 @cli.command()
 def run_postproc_goi():
-
     processed_path = Path(cwd + "/data/processed/goi")
     os.makedirs(processed_path, exist_ok=True)
 
-    print("Processing GOI list.")
+    goi_list = from_file(cwd + "/data/goi.json")
 
-    tale_list = from_file(cwd + "/data/goi.json")
-    tales = {}
-    for tale in tqdm(tale_list, smoothing=0):
+    split_maps = load_split_maps(
+        "goi",
+        ["raw_content", "history", "page_id", "domain"],
+    )
 
-        tale["images"] = get_images(tale["raw_content"])
-        tale["hubs"] = get_hubs(tale["link"])
-        tale["raw_source"] = get_wiki_source(tale["page_id"], tale["domain"])
+    goi_data = {}
 
-        # Convert history dict to list and sort by date.
-        tale["history"] = process_history(tale["history"])
+    for item in tqdm(goi_list, smoothing=0):
+        raw_content = get_field(item, split_maps, "raw_content", "")
+        history = get_field(item, split_maps, "history", {})
 
-        if len(tale["history"]) > 0:
-            tale["created_at"] = tale["history"][0]["date"]
-            tale["creator"] = tale["history"][0]["author"]
+        item["raw_content"] = raw_content
+        item["history"] = history
+
+        item["images"] = get_images(raw_content) if raw_content else []
+        item["history"] = process_history(history)
+
+        if item["history"]:
+            item["created_at"] = item["history"][0]["date"]
+            item["creator"] = item["history"][0]["author"]
         else:
-            tale["created_at"] = "unknown"
-            tale["creator"] = "unknown"
+            item["created_at"] = "unknown"
+            item["creator"] = "unknown"
 
-        tale["link"] = tale["url"].replace("https://scp-wiki.wikidot.com/", "")
-        tales[tale["link"]] = tale
+        link = item["url"].replace("https://scp-wiki.wikidot.com/", "")
+        goi_data[link] = item
 
-    to_file(tales, processed_path / f"content_goi.json")
+    to_file(goi_data, processed_path / "content_goi.json")
 
-    for tale_id in tales:
-        del tales[tale_id]["raw_content"]
-        del tales[tale_id]["raw_source"]
-        tales[tale_id]["content_file"] = f"content_goi.json"
+    for key in goi_data:
+        goi_data[key].pop("raw_content", None)
+        goi_data[key]["content_file"] = "content_goi.json"
 
-    to_file(tales, processed_path / "index.json")
-
-
-if __name__ == "__main__":
-    cli()
+    to_file(goi_data, processed_path / "index.json")
