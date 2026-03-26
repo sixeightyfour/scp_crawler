@@ -17,7 +17,7 @@ NEWSPIDER_MODULE = "scp_crawler.spiders"
 LOG_LEVEL = "INFO"
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = "scp_crawler (https://github.com/tedivm/scp_crawler)"
+USER_AGENT = "scp_crawler (https://github.com/sixeightyfour/scp_crawler)"
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
@@ -105,10 +105,10 @@ ITEM_PIPELINES = {
 
 # Fields stored in combined JSON. "None" includes everything
 # Example: EXPORT_FIELDS = ["url", "title", "tags"]
-EXPORT_FIELDS = None
+EXPORT_FIELDS = ["title", "link", "tags", "rating", "references"]
 
 # Fields stored in individual JSONs. Keyed by URL
-SPLIT_FIELDS = ["raw_content"]
+SPLIT_FIELDS = ["scp", "history"]
 SPLIT_OUTPUT_DIR = f"{DIRECTORY}/split"
 
 # If true, removes split fields from combined JSON
